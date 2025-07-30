@@ -1,0 +1,40 @@
+name: CI/CD
+on:
+  push:
+    tags:
+      - "v*"
+    branches:
+      - main
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cli/gh-extension-precompile@v2
+        with:
+          generate_attestations: true
+          go_version_file: go.mod
+
+  semantic-release:
+    # Only perform semantic-release on main
+    # The purpose of this is to generate a new version tag based on the commit messages
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-22.04
+    # TODO
+    # needs: test
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          go-version: 1.21.3
+      - uses: go-semantic-release/action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
