@@ -9,15 +9,21 @@ import (
 )
 
 func main() {
-	templateName := flag.String("template", "", "template file name")
+	// Flags
+	templateFlag := flag.String("template", "", "template file name")
+	editFlag := flag.String("edit", "", "Edit existing PR, rather than create it.  Overwrites PR description.")
 	flag.Parse()
 
-	if *templateName == "" {
+	if *templateFlag == "" {
 		fmt.Println("Please provide a template name using the --template flag.")
 		return
 	}
-
-	templatePath := filepath.Join("templates", *templateName)
+	// TODO : This is not a path to the file in this folder.
+	// It is a path to the template relative to the "qpr-repo";
+	// The default of which is karldreher/gh-qpr,
+	// but can be overridden with the GH_QPR_REPO environment variable.
+	// This implies a fairly broad set of changes.
+	templatePath := filepath.Join("templates", *templateFlag)
 	if filepath.Ext(templatePath) == "" {
 		// Always assume this is md,
 		// so users can either provide this or not.
@@ -29,8 +35,14 @@ func main() {
 		fmt.Printf("Error reading template file: %v\n", err)
 		return
 	}
-
-	cmd := exec.Command("gh", "pr", "create", "--body", string(content))
+	// The subcommand that is passed to GH.
+	var subcommand string
+	if *editFlag != "" {
+		subcommand = "edit"
+	} else {
+		subcommand = "create"
+	}
+	cmd := exec.Command("gh", "pr", subcommand, "--body", string(content))
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
