@@ -33,6 +33,17 @@ func runTemplatePR(action string) func(cmd *cobra.Command, args []string) error 
 		}
 
 		cmdArgs := []string{"pr", action, "--body", string(content)}
+		if action == "create" {
+			title, _ := cmd.Flags().GetString("title")
+			if title == "" {
+				// PR titles can always be changed.
+				// This provides a safe default.
+				// If the user wants a specific title, they can use the --title flag.
+				title = "QPR"
+			}
+			cmdArgs = append(cmdArgs, "--title", title)
+		}
+
 		cmdExec := exec.Command("gh", cmdArgs...)
 		cmdExec.Stdout = os.Stdout
 		cmdExec.Stderr = os.Stderr
@@ -55,6 +66,7 @@ func main() {
 		RunE:  runTemplatePR("create"),
 	}
 	createCmd.Flags().StringP("template", "t", "", "template file name (required)")
+	createCmd.Flags().StringP("title", "T", "", "pull request title (default: QPR)")
 	createCmd.MarkFlagRequired("template")
 
 	editCmd := &cobra.Command{
