@@ -1,51 +1,74 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
+
+	"github.com/karldreher/gh-qpr/lib"
+	"github.com/spf13/cobra"
 )
 
+func runTemplatePR(action string) func(cmd *cobra.Command, args []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		templateName, _ := cmd.Flags().GetString("template")
+		if templateName == "" {
+			return fmt.Errorf("--template flag is required")
+		}
+
+		repoOwner, repoName := lib.GetRepoFromEnv()
+		repoCache, err := lib.NewRepoCache(repoOwner, repoName)
+		if err != nil {
+			return fmt.Errorf("error creating repo cache: %v", err)
+		}
+
+		if err := repoCache.EnsureCloned(); err != nil {
+			return fmt.Errorf("error cloning repository: %v", err)
+		}
+
+		templatePath := repoCache.TemplatePath(templateName)
+		content, err := os.ReadFile(templatePath)
+		if err != nil {
+			return fmt.Errorf("error reading template file: %v", err)
+		}
+
+		cmdArgs := []string{"pr", action, "--body", string(content)}
+		cmdExec := exec.Command("gh", cmdArgs...)
+		cmdExec.Stdout = os.Stdout
+		cmdExec.Stderr = os.Stderr
+		if err := cmdExec.Run(); err != nil {
+			return fmt.Errorf("error running gh pr %s: %v", action, err)
+		}
+		return nil
+	}
+}
+
 func main() {
-	// Flags
-	templateFlag := flag.String("template", "", "template file name")
-	editFlag := flag.String("edit", "", "Edit existing PR, rather than create it.  Overwrites PR description.")
-	flag.Parse()
-
-	if *templateFlag == "" {
-		fmt.Println("Please provide a template name using the --template flag.")
-		return
-	}
-	// TODO : This is not a path to the file in this folder.
-	// It is a path to the template relative to the "qpr-repo";
-	// The default of which is karldreher/gh-qpr,
-	// but can be overridden with the GH_QPR_REPO environment variable.
-	// This implies a fairly broad set of changes.
-	templatePath := filepath.Join("templates", *templateFlag)
-	if filepath.Ext(templatePath) == "" {
-		// Always assume this is md,
-		// so users can either provide this or not.
-		templatePath += ".md"
+	var rootCmd = &cobra.Command{
+		Use:   "gh-qpr",
+		Short: "GitHub PR helper for templates",
 	}
 
-	content, err := os.ReadFile(templatePath)
-	if err != nil {
-		fmt.Printf("Error reading template file: %v\n", err)
-		return
+	createCmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new pull request using a template",
+		RunE:  runTemplatePR("create"),
 	}
-	// The subcommand that is passed to GH.
-	var subcommand string
-	if *editFlag != "" {
-		subcommand = "edit"
-	} else {
-		subcommand = "create"
+	createCmd.Flags().StringP("template", "t", "", "template file name (required)")
+	createCmd.MarkFlagRequired("template")
+
+	editCmd := &cobra.Command{
+		Use:   "edit",
+		Short: "Edit an existing pull request using a template.  WARNING: Overwrites existing description.",
+		RunE:  runTemplatePR("edit"),
 	}
-	cmd := exec.Command("gh", "pr", subcommand, "--body", string(content))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("Error creating pull request: %v\n", err)
+	editCmd.Flags().StringP("template", "t", "", "template file name (required)")
+	editCmd.MarkFlagRequired("template")
+
+	rootCmd.AddCommand(createCmd, editCmd)
+
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
 	}
 }
