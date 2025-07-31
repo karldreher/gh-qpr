@@ -24,6 +24,12 @@ archives:
     files:
       - LICENSE
       - README.md
+  - id: bare
+    format: binary
+    name_template: "{{ .ProjectName }}"
+    files:
+      - LICENSE
+      - README.md
 release:
   github:
     owner: karldreher
