@@ -23,6 +23,11 @@ jobs:
       
       - name: Build
         run: go build .
+        
+      - uses: go-semantic-release/action@v1
+        with:
+          hooks: goreleaser
+          dry: true
 
   semantic-release:
     # Only perform semantic-release on main
