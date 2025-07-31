@@ -1,4 +1,3 @@
-# This is a minimal goreleaser config for a Go CLI project
 version: 2
 project_name: gh-qpr
 builds:
