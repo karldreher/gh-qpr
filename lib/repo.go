@@ -34,8 +34,7 @@ func NewRepoCache(owner, repoName string) (*RepoCache, error) {
 func (rc *RepoCache) EnsureCloned() error {
 	if _, err := os.Stat(rc.Path); os.IsNotExist(err) {
 		fmt.Printf("Cloning %s/%s to %s...\n", rc.Owner, rc.RepoName, rc.Path)
-		// TODO: Fix develop shim
-		cmd := exec.Command("gh", "repo", "clone", fmt.Sprintf("%s/%s", rc.Owner, rc.RepoName), rc.Path, "--", "--branch", "develop")
+		cmd := exec.Command("gh", "repo", "clone", fmt.Sprintf("%s/%s", rc.Owner, rc.RepoName), rc.Path, "--", "--branch")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
