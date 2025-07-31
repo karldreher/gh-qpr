@@ -1,4 +1,4 @@
-# This is a minimal goreleaser config for a Go CLI project
+version: 2
 project_name: gh-qpr
 builds:
   - main: ./main.go
@@ -12,12 +12,14 @@ builds:
     ldflags:
       - -s -w
 archives:
-  - format: tar.gz
+  - id: tar
+    format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
       - README.md
-  - format: binary
+  - id: bin
+    format: binary
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
     files:
       - LICENSE
