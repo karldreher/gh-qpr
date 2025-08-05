@@ -24,21 +24,11 @@ jobs:
       - name: Build
         run: go build .
 
-      - uses: go-semantic-release/action@v1
-        with:
-          hooks: goreleaser
-          dry: true
-          prerelease: true
-          force-bump-patch-version: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  semantic-release:
+  release:
     # Only perform semantic-release on main
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
-    # TODO
-    # needs: test
+    needs: test
     permissions:
       contents: write
     steps:
