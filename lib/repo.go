@@ -30,11 +30,20 @@ func NewRepoCache(owner, repoName string) (*RepoCache, error) {
 		nil
 }
 
+var cloneCommand = func(owner, repoName, path string) *exec.Cmd {
+	return exec.Command("gh", "repo", "clone", fmt.Sprintf("%s/%s", owner, repoName), path)
+}
+
 // EnsureCloned ensures that the repository is cloned to the cache directory.
 func (rc *RepoCache) EnsureCloned() error {
 	if _, err := os.Stat(rc.Path); os.IsNotExist(err) {
 		fmt.Printf("Cloning %s/%s to %s...\n", rc.Owner, rc.RepoName, rc.Path)
-		cmd := exec.Command("gh", "repo", "clone", fmt.Sprintf("%s/%s", rc.Owner, rc.RepoName), rc.Path, "--", "--branch")
+		parentDir := filepath.Dir(rc.Path)
+		// Directories must be created with 0755
+		if err := os.MkdirAll(parentDir, 0755); err != nil {
+			return fmt.Errorf("failed to create cache directory %s: %w", parentDir, err)
+		}
+		cmd := cloneCommand(rc.Owner, rc.RepoName, rc.Path)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		return cmd.Run()
@@ -45,6 +54,7 @@ func (rc *RepoCache) EnsureCloned() error {
 // TemplatePath returns the full path to a template file in the cached repository.
 func (rc *RepoCache) TemplatePath(templateName string) string {
 	templatePath := filepath.Join(rc.Path, "templates", templateName)
+	// A template may be referenced with or without the .md extension
 	if filepath.Ext(templatePath) == "" {
 		templatePath += ".md"
 	}
