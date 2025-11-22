@@ -58,10 +58,10 @@ func runTemplatePR(action string) func(cmd *cobra.Command, args []string) error 
 			stderrOutput := stderrBuf.String()
 			if strings.Contains(stderrOutput, "GraphQL: Projects (classic) is being deprecated") {
 				return fmt.Errorf(
-					"error running gh pr %s: The `gh` CLI encountered a deprecated GitHub Projects API. " +
-						"This is likely due to an outdated `gh` CLI version. " +
-						"Please update your GitHub CLI to the latest version. " +
-						"Original error: %w", err)
+					"error running gh pr %s: The `gh` CLI encountered a deprecated GitHub Projects API. "+
+						"This is likely due to an outdated `gh` CLI version. "+
+						"Please update your GitHub CLI to the latest version. "+
+						"Original error: %v", action, err)
 			}
 			return fmt.Errorf("error running gh pr %s: %w", action, err)
 		}
