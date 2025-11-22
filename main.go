@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/karldreher/gh-qpr/lib"
 	"github.com/spf13/cobra"
@@ -46,9 +48,22 @@ func runTemplatePR(action string) func(cmd *cobra.Command, args []string) error 
 
 		cmdExec := exec.Command("gh", cmdArgs...)
 		cmdExec.Stdout = os.Stdout
-		cmdExec.Stderr = os.Stderr
-		if err := cmdExec.Run(); err != nil {
-			return fmt.Errorf("error running gh pr %s: %v", action, err)
+
+		var stderrBuf bytes.Buffer
+		cmdExec.Stderr = &stderrBuf
+
+		err = cmdExec.Run()
+
+		if err != nil {
+			stderrOutput := stderrBuf.String()
+			if strings.Contains(stderrOutput, "GraphQL: Projects (classic) is being deprecated") {
+				return fmt.Errorf(
+					"error running gh pr %s: The `gh` CLI encountered a deprecated GitHub Projects API. " +
+						"This is likely due to an outdated `gh` CLI version. " +
+						"Please update your GitHub CLI to the latest version. " +
+						"Original error: %w", err)
+			}
+			return fmt.Errorf("error running gh pr %s: %w", action, err)
 		}
 		return nil
 	}
