@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strconv"
@@ -118,7 +119,7 @@ func runTemplatePR(action string) func(cmd *cobra.Command, args []string) error 
 		cmdExec.Stdout = os.Stdout
 
 		var stderrBuf bytes.Buffer
-		cmdExec.Stderr = &stderrBuf
+		cmdExec.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
 
 		err = cmdExec.Run()
 
