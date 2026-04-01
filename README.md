@@ -32,13 +32,24 @@ This tool provides an interface, which:
 
 
 # Usage
+Example: Set a default template
+
+`gh qpr default`
+
+- Interactively select a default template from those available in your configured repo.
+- The selection is saved to `~/.gh-qpr/config.json` and used automatically by `create` and `edit`.
+
 Example: Create a Quality Pull Request
 
 `gh qpr create --template reviewer-first.md`
 
-- Template is always required.  
 - In the example above, the `reviewer-first.md` template is selected, from the [`reviewer-first.md`](templates/reviewer-first.md) file in this repository.  (the default repository)
 - `.md` extensions are optional in template selection.
+- `--template` is optional if a default has been set via `gh qpr default` or `GH_QPR_DEFAULT_TEMPLATE`.
+
+Example: Create without specifying a template (uses default)
+
+`gh qpr create`
 
 Example: Customize Title
 `gh qpr create --template reviewer-first --title "feat: new api endpoint`
@@ -53,4 +64,10 @@ Example: Get Help
 # Usage (Advanced)
 ## Bring Your Own Repo
 Set the environment variable `GH_QPR_REPO` in the format `owner/repo`.  This repo will be the place where *all* templates are gathered.  Place them in a directory called `templates` in this repo.
+
+## Default Template
+The default template is resolved in this order:
+1. `--template` flag (explicit, always wins)
+2. `GH_QPR_DEFAULT_TEMPLATE` environment variable
+3. Value saved by `gh qpr default` (stored in `~/.gh-qpr/config.json`)
 
