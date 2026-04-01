@@ -107,6 +107,65 @@ func TestEnsureCloned(t *testing.T) {
 	})
 }
 
+func TestListTemplates(t *testing.T) {
+	t.Run("returns nil for missing templates dir", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		rc := &RepoCache{Path: tmpDir}
+		names, err := rc.ListTemplates()
+		if err != nil {
+			t.Fatalf("ListTemplates() unexpected error: %v", err)
+		}
+		if len(names) != 0 {
+			t.Errorf("expected empty slice, got %v", names)
+		}
+	})
+
+	t.Run("returns template names without extension", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		templatesDir := filepath.Join(tmpDir, "templates")
+		if err := os.MkdirAll(templatesDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range []string{"alpha.md", "beta.md", "notes.txt"} {
+			if err := os.WriteFile(filepath.Join(templatesDir, name), []byte(""), 0644); err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		rc := &RepoCache{Path: tmpDir}
+		names, err := rc.ListTemplates()
+		if err != nil {
+			t.Fatalf("ListTemplates() unexpected error: %v", err)
+		}
+		if len(names) != 2 {
+			t.Fatalf("expected 2 templates, got %d: %v", len(names), names)
+		}
+		if names[0] != "alpha" || names[1] != "beta" {
+			t.Errorf("unexpected template names: %v", names)
+		}
+	})
+
+	t.Run("skips subdirectories", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		templatesDir := filepath.Join(tmpDir, "templates")
+		if err := os.MkdirAll(filepath.Join(templatesDir, "subdir"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(templatesDir, "foo.md"), []byte(""), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		rc := &RepoCache{Path: tmpDir}
+		names, err := rc.ListTemplates()
+		if err != nil {
+			t.Fatalf("ListTemplates() unexpected error: %v", err)
+		}
+		if len(names) != 1 || names[0] != "foo" {
+			t.Errorf("expected [foo], got %v", names)
+		}
+	})
+}
+
 func TestUpdate(t *testing.T) {
 	oldSyncCommand := syncCommand
 	oldCloneCommand := cloneCommand

@@ -83,6 +83,31 @@ func (rc *RepoCache) TemplatePath(templateName string) string {
 	return templatePath
 }
 
+// ListTemplates returns the base names (without .md extension) of all *.md files
+// in the templates subdirectory of the cache.
+// Returns nil, nil if the directory does not exist.
+func (rc *RepoCache) ListTemplates() ([]string, error) {
+	dir := filepath.Join(rc.Path, "templates")
+	entries, err := os.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("reading templates directory: %w", err)
+	}
+	var names []string
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if filepath.Ext(name) == ".md" {
+			names = append(names, strings.TrimSuffix(name, ".md"))
+		}
+	}
+	return names, nil
+}
+
 func GetRepoFromEnv() (string, string) {
 	repoEnv := os.Getenv("GH_QPR_REPO")
 	if repoEnv == "" {

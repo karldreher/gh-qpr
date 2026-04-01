@@ -1,21 +1,83 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/karldreher/gh-qpr/lib"
 	"github.com/spf13/cobra"
 )
 
+// resolveTemplate determines the effective template name, checking (in order):
+// the explicit flag value, GH_QPR_DEFAULT_TEMPLATE env var, and the config file.
+func resolveTemplate(flagValue string) (string, error) {
+	if flagValue != "" {
+		return flagValue, nil
+	}
+	if v := os.Getenv("GH_QPR_DEFAULT_TEMPLATE"); v != "" {
+		return v, nil
+	}
+	cfg, err := lib.LoadConfig()
+	if err != nil {
+		return "", fmt.Errorf("loading config: %w", err)
+	}
+	if cfg.DefaultTemplate != "" {
+		return cfg.DefaultTemplate, nil
+	}
+	return "", fmt.Errorf("no template specified: use --template, set GH_QPR_DEFAULT_TEMPLATE, or run 'gh qpr default'")
+}
+
+func runDefaultCmd(cmd *cobra.Command, args []string) error {
+	repoOwner, repoName := lib.GetRepoFromEnv()
+	repoCache, err := lib.NewRepoCache(repoOwner, repoName)
+	if err != nil {
+		return fmt.Errorf("error creating repo cache: %v", err)
+	}
+	if err := repoCache.EnsureCloned(); err != nil {
+		return fmt.Errorf("error cloning repository: %v", err)
+	}
+	templates, err := repoCache.ListTemplates()
+	if err != nil {
+		return fmt.Errorf("error listing templates: %v", err)
+	}
+	if len(templates) == 0 {
+		return fmt.Errorf("no templates found in %s", repoCache.Path)
+	}
+	fmt.Println("Available templates:")
+	for i, name := range templates {
+		fmt.Printf("  %d) %s\n", i+1, name)
+	}
+	fmt.Printf("Select template [1-%d]: ", len(templates))
+	reader := bufio.NewReader(os.Stdin)
+	line, _ := reader.ReadString('\n')
+	idx, err := strconv.Atoi(strings.TrimSpace(line))
+	if err != nil || idx < 1 || idx > len(templates) {
+		return fmt.Errorf("invalid selection: %q", strings.TrimSpace(line))
+	}
+	chosen := templates[idx-1]
+	cfg, err := lib.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("error loading config: %v", err)
+	}
+	cfg.DefaultTemplate = chosen
+	if err := lib.SaveConfig(cfg); err != nil {
+		return fmt.Errorf("error saving config: %v", err)
+	}
+	fmt.Printf("Default template set to: %s\n", chosen)
+	return nil
+}
+
 func runTemplatePR(action string) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		templateName, _ := cmd.Flags().GetString("template")
-		if templateName == "" {
-			return fmt.Errorf("--template flag is required")
+		templateFlagValue, _ := cmd.Flags().GetString("template")
+		templateName, err := resolveTemplate(templateFlagValue)
+		if err != nil {
+			return err
 		}
 
 		repoOwner, repoName := lib.GetRepoFromEnv()
@@ -124,11 +186,9 @@ func main() {
 		RunE: runTemplatePR("create"),
 	}
 
-	createCmd.Flags().StringP("template", "t", "", "template file name (required)")
+	createCmd.Flags().StringP("template", "t", "", "template file name (uses default if not set)")
 
 	createCmd.Flags().StringP("title", "T", "", "pull request title (default: QPR)")
-
-	createCmd.MarkFlagRequired("template")
 
 	editCmd := &cobra.Command{
 
@@ -139,9 +199,7 @@ func main() {
 		RunE: runTemplatePR("edit"),
 	}
 
-	editCmd.Flags().StringP("template", "t", "", "template file name (required)")
-
-	editCmd.MarkFlagRequired("template")
+	editCmd.Flags().StringP("template", "t", "", "template file name (uses default if not set)")
 
 	updateCmd := &cobra.Command{
 
@@ -152,7 +210,16 @@ func main() {
 		RunE: runUpdateRepo,
 	}
 
-	rootCmd.AddCommand(createCmd, editCmd, updateCmd)
+	defaultCmd := &cobra.Command{
+
+		Use:   "default",
+
+		Short: "Interactively select the default PR template",
+
+		RunE: runDefaultCmd,
+	}
+
+	rootCmd.AddCommand(createCmd, editCmd, updateCmd, defaultCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 
