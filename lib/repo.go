@@ -51,6 +51,28 @@ func (rc *RepoCache) EnsureCloned() error {
 	return nil
 }
 
+var syncCommand = func(owner, repoName, path string) *exec.Cmd {
+	cmd := exec.Command("gh", "repo", "sync", "--source", fmt.Sprintf("%s/%s", owner, repoName))
+	cmd.Dir = path
+	return cmd
+}
+
+// Update pulls the latest changes for the cached repository.
+func (rc *RepoCache) Update() error {
+	if err := rc.EnsureCloned(); err != nil {
+		return fmt.Errorf("failed to ensure repository is cloned before update: %w", err)
+	}
+
+	fmt.Printf("Updating %s/%s in %s...\n", rc.Owner, rc.RepoName, rc.Path)
+	cmd := syncCommand(rc.Owner, rc.RepoName, rc.Path)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to update repository %s/%s: %w", rc.Owner, rc.RepoName, err)
+	}
+	return nil
+}
+
 // TemplatePath returns the full path to a template file in the cached repository.
 func (rc *RepoCache) TemplatePath(templateName string) string {
 	templatePath := filepath.Join(rc.Path, "templates", templateName)

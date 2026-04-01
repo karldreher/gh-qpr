@@ -55,47 +55,111 @@ func runTemplatePR(action string) func(cmd *cobra.Command, args []string) error 
 		err = cmdExec.Run()
 
 		if err != nil {
+
 			stderrOutput := stderrBuf.String()
+
 			if strings.Contains(stderrOutput, "GraphQL: Projects (classic) is being deprecated") {
+
 				return fmt.Errorf(
+
 					"error running gh pr %s: The `gh` CLI encountered a deprecated GitHub Projects API. "+
+
 						"This is likely due to an outdated `gh` CLI version. "+
+
 						"Please update your GitHub CLI to the latest version. "+
+
 						"Original error: %v", action, err)
+
 			}
+
 			return fmt.Errorf("error running gh pr %s: %w", action, err)
+
 		}
+
 		return nil
+
 	}
+
+}
+
+func runUpdateRepo(cmd *cobra.Command, args []string) error {
+
+	repoOwner, repoName := lib.GetRepoFromEnv()
+
+	repoCache, err := lib.NewRepoCache(repoOwner, repoName)
+
+	if err != nil {
+
+		return fmt.Errorf("error creating repo cache: %v", err)
+
+	}
+
+	if err := repoCache.Update(); err != nil {
+
+		return fmt.Errorf("error updating repository cache: %v", err)
+
+	}
+
+	fmt.Println("Repository cache updated successfully.")
+
+	return nil
+
 }
 
 func main() {
+
 	var rootCmd = &cobra.Command{
-		Use:   "gh-qpr",
+
+		Use: "gh-qpr",
+
 		Short: "GitHub PR helper for templates",
 	}
 
 	createCmd := &cobra.Command{
-		Use:   "create",
+
+		Use: "create",
+
 		Short: "Create a new pull request using a template",
-		RunE:  runTemplatePR("create"),
+
+		RunE: runTemplatePR("create"),
 	}
+
 	createCmd.Flags().StringP("template", "t", "", "template file name (required)")
+
 	createCmd.Flags().StringP("title", "T", "", "pull request title (default: QPR)")
+
 	createCmd.MarkFlagRequired("template")
 
 	editCmd := &cobra.Command{
-		Use:   "edit",
+
+		Use: "edit",
+
 		Short: "Edit an existing pull request using a template.  WARNING: Overwrites existing description.",
-		RunE:  runTemplatePR("edit"),
+
+		RunE: runTemplatePR("edit"),
 	}
+
 	editCmd.Flags().StringP("template", "t", "", "template file name (required)")
+
 	editCmd.MarkFlagRequired("template")
 
-	rootCmd.AddCommand(createCmd, editCmd)
+	updateCmd := &cobra.Command{
+
+		Use: "update",
+
+		Short: "Update the local repository cache with the latest changes from remote.",
+
+		RunE: runUpdateRepo,
+	}
+
+	rootCmd.AddCommand(createCmd, editCmd, updateCmd)
 
 	if err := rootCmd.Execute(); err != nil {
+
 		fmt.Fprintf(os.Stderr, "%v\n", err)
+
 		os.Exit(1)
+
 	}
+
 }

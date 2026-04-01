@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -102,6 +103,117 @@ func TestEnsureCloned(t *testing.T) {
 
 		if err := rc.EnsureCloned(); err != nil {
 			t.Fatalf("EnsureCloned() failed: %v", err)
+		}
+	})
+}
+
+func TestUpdate(t *testing.T) {
+	oldSyncCommand := syncCommand
+	oldCloneCommand := cloneCommand
+	defer func() {
+		syncCommand = oldSyncCommand
+		cloneCommand = oldCloneCommand
+	}()
+
+	t.Run("updates existing cloned repository successfully", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		repoPath := filepath.Join(tmpDir, "gh-qpr-repo")
+
+		if err := os.MkdirAll(repoPath, 0755); err != nil {
+			t.Fatalf("failed to create test repo directory: %v", err)
+		}
+
+		var syncCalled bool
+		syncCommand = func(owner, repoName, path string) *exec.Cmd {
+			syncCalled = true
+			if path != repoPath {
+				t.Errorf("syncCommand called with unexpected path: got %s, want %s", path, repoPath)
+			}
+			return exec.Command("true")
+		}
+		cloneCommand = func(owner, repoName, path string) *exec.Cmd {
+			t.Fatalf("cloneCommand should not be called if repo exists")
+			return exec.Command("false")
+		}
+
+		rc := &RepoCache{
+			Owner:    "testowner",
+			RepoName: "testrepo",
+			Path:     repoPath,
+		}
+
+		if err := rc.Update(); err != nil {
+			t.Errorf("Update() failed unexpectedly: %v", err)
+		}
+		if !syncCalled {
+			t.Error("syncCommand was not called")
+		}
+	})
+
+	t.Run("clones and then updates if repository does not exist", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		repoPath := filepath.Join(tmpDir, "gh-qpr-repo-uncloned")
+
+		var cloneCalled, syncCalled bool
+
+		cloneCommand = func(owner, repoName, path string) *exec.Cmd {
+			cloneCalled = true
+			return exec.Command("true")
+		}
+		syncCommand = func(owner, repoName, path string) *exec.Cmd {
+			syncCalled = true
+			return exec.Command("true")
+		}
+
+		rc := &RepoCache{
+			Owner:    "testowner",
+			RepoName: "testrepo",
+			Path:     repoPath,
+		}
+
+		if err := rc.Update(); err != nil {
+			t.Fatalf("Update() failed unexpectedly: %v", err)
+		}
+		if !cloneCalled {
+			t.Error("cloneCommand was not called when repository did not exist")
+		}
+		if !syncCalled {
+			t.Error("syncCommand was not called after cloning")
+		}
+	})
+
+	t.Run("returns error if gh repo sync fails", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		repoPath := filepath.Join(tmpDir, "gh-qpr-repo-sync-fail")
+
+		if err := os.MkdirAll(repoPath, 0755); err != nil {
+			t.Fatalf("failed to create test repo directory: %v", err)
+		}
+
+		var syncCalled bool
+		syncCommand = func(owner, repoName, path string) *exec.Cmd {
+			syncCalled = true
+			return exec.Command("false")
+		}
+		cloneCommand = func(owner, repoName, path string) *exec.Cmd {
+			return exec.Command("true")
+		}
+
+		rc := &RepoCache{
+			Owner:    "testowner",
+			RepoName: "testrepo",
+			Path:     repoPath,
+		}
+
+		err := rc.Update()
+		if err == nil {
+			t.Error("Update() did not return an error when gh repo sync failed")
+		}
+		if !strings.Contains(err.Error(), "failed to update repository") {
+			t.Errorf("unexpected error message: %v", err)
+		}
+		if !syncCalled {
+			t.Error("syncCommand was not called")
 		}
 	})
 }
