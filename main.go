@@ -32,6 +32,9 @@ func resolveTemplate(flagValue string) (string, error) {
 	return "", fmt.Errorf("no template specified: use --template, set GH_QPR_DEFAULT_TEMPLATE, or run 'gh qpr default'")
 }
 
+// runDefaultCmd is the handler for `gh qpr default`. It lists available templates
+// from the local cache and prompts the user to select one, then persists the
+// choice to ~/.gh-qpr/config.json.
 func runDefaultCmd(cmd *cobra.Command, args []string) error {
 	repoOwner, repoName := lib.GetRepoFromEnv()
 	repoCache, err := lib.NewRepoCache(repoOwner, repoName)
@@ -72,6 +75,9 @@ func runDefaultCmd(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// runTemplatePR returns a Cobra RunE handler for the given PR action ("create" or "edit").
+// It resolves the template via resolveTemplate, reads the template body from the local
+// cache, and invokes `gh pr <action>` with that body.
 func runTemplatePR(action string) func(cmd *cobra.Command, args []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		templateFlagValue, _ := cmd.Flags().GetString("template")
@@ -144,6 +150,8 @@ func runTemplatePR(action string) func(cmd *cobra.Command, args []string) error 
 
 }
 
+// runUpdateRepo is the handler for `gh qpr update`. It syncs the local template
+// repo cache with the latest changes from the remote.
 func runUpdateRepo(cmd *cobra.Command, args []string) error {
 
 	repoOwner, repoName := lib.GetRepoFromEnv()

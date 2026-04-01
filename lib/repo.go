@@ -108,6 +108,9 @@ func (rc *RepoCache) ListTemplates() ([]string, error) {
 	return names, nil
 }
 
+// GetRepoFromEnv returns the template repository owner and name.
+// It reads GH_QPR_REPO (format: "owner/repo") and falls back to "karldreher/gh-qpr".
+// Exits with a non-zero status if GH_QPR_REPO is set but malformed.
 func GetRepoFromEnv() (string, string) {
 	repoEnv := os.Getenv("GH_QPR_REPO")
 	if repoEnv == "" {

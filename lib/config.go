@@ -8,7 +8,11 @@ import (
 )
 
 // Config holds user-level persistent settings for gh-qpr.
+// It is persisted as JSON at ~/.gh-qpr/config.json.
 type Config struct {
+	// DefaultTemplate is the name of the template to use when --template is not provided.
+	// Set via `gh qpr default` or the GH_QPR_DEFAULT_TEMPLATE environment variable.
+	// The value should match a template name in the configured repo (with or without .md extension).
 	DefaultTemplate string `json:"default_template"`
 }
 

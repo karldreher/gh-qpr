@@ -76,6 +76,28 @@ func TestLoadConfig_MalformedJSON(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_WrongFieldType(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	configDir := filepath.Join(tmpDir, ".gh-qpr")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	// default_template must be a string; passing a number violates the schema.
+	if err := os.WriteFile(filepath.Join(configDir, "config.json"), []byte(`{"default_template": 123}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadConfig()
+	if err == nil {
+		t.Error("LoadConfig() expected error for wrong field type, got nil")
+	}
+	if !strings.Contains(err.Error(), "parsing config file") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
 func TestSaveConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
