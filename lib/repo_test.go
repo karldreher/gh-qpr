@@ -108,11 +108,10 @@ func TestEnsureCloned(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	// Setup: Override ghSyncCommand and cloneCommand to mock git/gh operations
-	oldGhSyncCommand := ghSyncCommand
+	oldSyncCommand := syncCommand
 	oldCloneCommand := cloneCommand
 	defer func() {
-		ghSyncCommand = oldGhSyncCommand
+		syncCommand = oldSyncCommand
 		cloneCommand = oldCloneCommand
 	}()
 
@@ -120,25 +119,21 @@ func TestUpdate(t *testing.T) {
 		tmpDir := t.TempDir()
 		repoPath := filepath.Join(tmpDir, "gh-qpr-repo")
 
-		// Simulate an already cloned repository by creating the directory
 		if err := os.MkdirAll(repoPath, 0755); err != nil {
 			t.Fatalf("failed to create test repo directory: %v", err)
 		}
 
-		var syncCalled bool // Track if ghSyncCommand was called
-
-		// Mock gh repo sync to succeed
-		ghSyncCommand = func(owner, repoName, path string) *exec.Cmd {
+		var syncCalled bool
+		syncCommand = func(owner, repoName, path string) *exec.Cmd {
 			syncCalled = true
 			if path != repoPath {
-				t.Errorf("ghSyncCommand called with unexpected path: got %s, want %s", path, repoPath)
+				t.Errorf("syncCommand called with unexpected path: got %s, want %s", path, repoPath)
 			}
 			return exec.Command("true")
 		}
-		// Mock cloneCommand so it's not called if repo already exists
 		cloneCommand = func(owner, repoName, path string) *exec.Cmd {
 			t.Fatalf("cloneCommand should not be called if repo exists")
-			return exec.Command("false") // Should not be reached
+			return exec.Command("false")
 		}
 
 		rc := &RepoCache{
@@ -151,7 +146,7 @@ func TestUpdate(t *testing.T) {
 			t.Errorf("Update() failed unexpectedly: %v", err)
 		}
 		if !syncCalled {
-			t.Error("ghSyncCommand was not called")
+			t.Error("syncCommand was not called")
 		}
 	})
 
@@ -159,16 +154,13 @@ func TestUpdate(t *testing.T) {
 		tmpDir := t.TempDir()
 		repoPath := filepath.Join(tmpDir, "gh-qpr-repo-uncloned")
 
-		var cloneCalled bool
-		var syncCalled bool
+		var cloneCalled, syncCalled bool
 
-		// Mock cloneCommand to succeed and mark as called
 		cloneCommand = func(owner, repoName, path string) *exec.Cmd {
 			cloneCalled = true
 			return exec.Command("true")
 		}
-		// Mock ghSyncCommand to succeed and mark as called
-		ghSyncCommand = func(owner, repoName, path string) *exec.Cmd {
+		syncCommand = func(owner, repoName, path string) *exec.Cmd {
 			syncCalled = true
 			return exec.Command("true")
 		}
@@ -182,12 +174,11 @@ func TestUpdate(t *testing.T) {
 		if err := rc.Update(); err != nil {
 			t.Fatalf("Update() failed unexpectedly: %v", err)
 		}
-
 		if !cloneCalled {
 			t.Error("cloneCommand was not called when repository did not exist")
 		}
 		if !syncCalled {
-			t.Error("ghSyncCommand was not called after cloning")
+			t.Error("syncCommand was not called after cloning")
 		}
 	})
 
@@ -195,20 +186,17 @@ func TestUpdate(t *testing.T) {
 		tmpDir := t.TempDir()
 		repoPath := filepath.Join(tmpDir, "gh-qpr-repo-sync-fail")
 
-		// Simulate an already cloned repository
 		if err := os.MkdirAll(repoPath, 0755); err != nil {
 			t.Fatalf("failed to create test repo directory: %v", err)
 		}
 
-		var syncCalled bool // Track if ghSyncCommand was called
-
-		// Mock gh repo sync to fail
-		ghSyncCommand = func(owner, repoName, path string) *exec.Cmd {
+		var syncCalled bool
+		syncCommand = func(owner, repoName, path string) *exec.Cmd {
 			syncCalled = true
-			return exec.Command("false") // `false` command exits with non-zero status
+			return exec.Command("false")
 		}
 		cloneCommand = func(owner, repoName, path string) *exec.Cmd {
-			return exec.Command("true") // Ensure cloned always works
+			return exec.Command("true")
 		}
 
 		rc := &RepoCache{
@@ -221,11 +209,11 @@ func TestUpdate(t *testing.T) {
 		if err == nil {
 			t.Error("Update() did not return an error when gh repo sync failed")
 		}
-		if err != nil && !strings.Contains(err.Error(), "failed to update repository") {
+		if !strings.Contains(err.Error(), "failed to update repository") {
 			t.Errorf("unexpected error message: %v", err)
 		}
 		if !syncCalled {
-			t.Error("ghSyncCommand was not called")
+			t.Error("syncCommand was not called")
 		}
 	})
 }

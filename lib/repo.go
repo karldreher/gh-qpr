@@ -51,21 +51,20 @@ func (rc *RepoCache) EnsureCloned() error {
 	return nil
 }
 
-var ghSyncCommand = func(owner, repoName, path string) *exec.Cmd {
-	cmd := exec.Command("gh", "repo", "sync", fmt.Sprintf("%s/%s", owner, repoName))
-	cmd.Dir = path // Set the working directory for the command
+var syncCommand = func(owner, repoName, path string) *exec.Cmd {
+	cmd := exec.Command("gh", "repo", "sync", "--source", fmt.Sprintf("%s/%s", owner, repoName))
+	cmd.Dir = path
 	return cmd
 }
 
 // Update pulls the latest changes for the cached repository.
 func (rc *RepoCache) Update() error {
-	// Ensure the repository is cloned before attempting to update
 	if err := rc.EnsureCloned(); err != nil {
 		return fmt.Errorf("failed to ensure repository is cloned before update: %w", err)
 	}
 
 	fmt.Printf("Updating %s/%s in %s...\n", rc.Owner, rc.RepoName, rc.Path)
-	cmd := ghSyncCommand(rc.Owner, rc.RepoName, rc.Path)
+	cmd := syncCommand(rc.Owner, rc.RepoName, rc.Path)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
