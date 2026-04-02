@@ -151,6 +151,47 @@ func runTemplatePR(action string) func(cmd *cobra.Command, args []string) error 
 
 }
 
+// runListCmd is the handler for `gh qpr list`. It prints the names of all
+// available templates in the local cache.
+func runListCmd(cmd *cobra.Command, args []string) error {
+	repoOwner, repoName := lib.GetRepoFromEnv()
+	repoCache, err := lib.NewRepoCache(repoOwner, repoName)
+	if err != nil {
+		return fmt.Errorf("error creating repo cache: %v", err)
+	}
+	if err := repoCache.EnsureCloned(); err != nil {
+		return fmt.Errorf("error cloning repository: %v", err)
+	}
+	templates, err := repoCache.ListTemplates()
+	if err != nil {
+		return fmt.Errorf("error listing templates: %v", err)
+	}
+	for _, name := range templates {
+		fmt.Println(name)
+	}
+	return nil
+}
+
+// runViewCmd is the handler for `gh qpr view <template>`. It prints the content
+// of the named template from the local cache.
+func runViewCmd(cmd *cobra.Command, args []string) error {
+	repoOwner, repoName := lib.GetRepoFromEnv()
+	repoCache, err := lib.NewRepoCache(repoOwner, repoName)
+	if err != nil {
+		return fmt.Errorf("error creating repo cache: %v", err)
+	}
+	if err := repoCache.EnsureCloned(); err != nil {
+		return fmt.Errorf("error cloning repository: %v", err)
+	}
+	templatePath := repoCache.TemplatePath(args[0])
+	content, err := os.ReadFile(templatePath)
+	if err != nil {
+		return fmt.Errorf("template %q not found: %v", args[0], err)
+	}
+	fmt.Print(string(content))
+	return nil
+}
+
 // runUpdateRepo is the handler for `gh qpr update`. It syncs the local template
 // repo cache with the latest changes from the remote.
 func runUpdateRepo(cmd *cobra.Command, args []string) error {
@@ -228,7 +269,20 @@ func main() {
 		RunE: runDefaultCmd,
 	}
 
-	rootCmd.AddCommand(createCmd, editCmd, updateCmd, defaultCmd)
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List available PR templates",
+		RunE:  runListCmd,
+	}
+
+	viewCmd := &cobra.Command{
+		Use:   "view <template>",
+		Short: "View the content of a PR template",
+		Args:  cobra.ExactArgs(1),
+		RunE:  runViewCmd,
+	}
+
+	rootCmd.AddCommand(createCmd, editCmd, updateCmd, defaultCmd, listCmd, viewCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 
